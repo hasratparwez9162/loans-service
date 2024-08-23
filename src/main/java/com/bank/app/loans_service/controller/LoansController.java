@@ -11,6 +11,7 @@ import java.math.BigDecimal;
 import java.util.List;
 
 @RestController
+@RequestMapping("loans")
 public class LoansController {
 
         @Autowired

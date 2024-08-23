@@ -3,11 +3,12 @@ package com.bank.app.loans_service.service;
 import com.bank.app.loans_service.entity.Loan;
 import com.bank.app.loans_service.repo.LoansRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
-
+@Service
 public class LoanServiceImpl implements LoanService {
     @Autowired
     private LoansRepository loanRepository;

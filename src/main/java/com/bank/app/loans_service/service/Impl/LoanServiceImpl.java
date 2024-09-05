@@ -1,7 +1,8 @@
-package com.bank.app.loans_service.service;
+package com.bank.app.loans_service.service.Impl;
 
 import com.bank.app.loans_service.entity.Loan;
 import com.bank.app.loans_service.repo.LoansRepository;
+import com.bank.app.loans_service.service.LoanService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 

@@ -22,6 +22,7 @@ public class Loan {
     private Long userId;  // Foreign key to User
     @Column(name = "amount")
     private BigDecimal loanAmount;
+    private LoanType loanType;
 
     private BigDecimal interestRate;
 

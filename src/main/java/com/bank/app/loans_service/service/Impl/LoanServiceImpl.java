@@ -9,6 +9,8 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Random;
+
 @Service
 public class LoanServiceImpl implements LoanService {
     @Autowired
@@ -16,6 +18,7 @@ public class LoanServiceImpl implements LoanService {
 
     @Override
     public Loan issueLoan(Loan loan) {
+        loan.setLoanNumber(generateLoanNumber());
         loan.setStartDate(LocalDate.now());
         loan.setEndDate(LocalDate.now().plusMonths(loan.getTenureMonths()));
         loan.setRemainingBalance(loan.getLoanAmount());
@@ -50,5 +53,10 @@ public class LoanServiceImpl implements LoanService {
             loanRepository.save(loan);
         }
         return loan;
+    }
+    private String generateLoanNumber() {
+        Random random = new Random();
+        int randomNumber = 100000000 + random.nextInt(900000000); // Generate a 9-digit number
+        return "LN" + randomNumber;
     }
 }

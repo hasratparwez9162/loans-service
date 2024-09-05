@@ -22,6 +22,9 @@ public class Loan {
     private Long userId;  // Foreign key to User
     @Column(name = "amount")
     private BigDecimal loanAmount;
+    @Column(unique = true)
+    private String loanNumber;
+    @Enumerated(EnumType.STRING)
     private LoanType loanType;
 
     private BigDecimal interestRate;

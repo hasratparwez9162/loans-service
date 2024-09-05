@@ -159,9 +159,7 @@ Clone the repository:
     
     eureka.client.service-url.defaultZone=http://localhost:8761/eureka
 ### Run the application:
-
-    
-    mvn spring-boot:run
+Run Main Class as per IDE.
 ### Test the service using Postman or another API client.
 
 ### Usage

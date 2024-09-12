@@ -1,6 +1,7 @@
 package com.bank.app.loans_service.service.Impl;
 
 import com.bank.app.loans_service.entity.Loan;
+import com.bank.app.loans_service.exception.ResourceNotFoundException;
 import com.bank.app.loans_service.repo.LoansRepository;
 import com.bank.app.loans_service.service.LoanService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -54,6 +55,50 @@ public class LoanServiceImpl implements LoanService {
         }
         return loan;
     }
+
+
+
+    @Override
+    public Loan updateLoan(Loan inputLoan) throws ResourceNotFoundException {
+        // Retrieve the existing loan from the repository by its ID
+        Loan existingLoan = loanRepository.findById(inputLoan.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Loan not found with id: " + inputLoan.getId()));
+
+        // Update only the fields provided in the input
+        if (inputLoan.getUserId() != null) {
+            existingLoan.setUserId(inputLoan.getUserId());
+        }
+        if (inputLoan.getLoanAmount() != null) {
+            existingLoan.setLoanAmount(inputLoan.getLoanAmount());
+        }
+        if (inputLoan.getLoanNumber() != null) {
+            existingLoan.setLoanNumber(inputLoan.getLoanNumber());
+        }
+        if (inputLoan.getLoanType() != null) {
+            existingLoan.setLoanType(inputLoan.getLoanType());
+        }
+        if (inputLoan.getInterestRate() != null) {
+            existingLoan.setInterestRate(inputLoan.getInterestRate());
+        }
+        if (inputLoan.getTenureMonths() != 0) {
+            existingLoan.setTenureMonths(inputLoan.getTenureMonths());
+        }
+        if (inputLoan.getStartDate() != null) {
+            existingLoan.setStartDate(inputLoan.getStartDate());
+        }
+        if (inputLoan.getEndDate() != null) {
+            existingLoan.setEndDate(inputLoan.getEndDate());
+        }
+        if (inputLoan.getRemainingBalance() != null) {
+            existingLoan.setRemainingBalance(inputLoan.getRemainingBalance());
+        }
+        if (inputLoan.getLoanStatus() != null) {
+            existingLoan.setLoanStatus(inputLoan.getLoanStatus());
+        }
+
+        return loanRepository.save(existingLoan);
+    }
+
     private String generateLoanNumber() {
         Random random = new Random();
         int randomNumber = 100000000 + random.nextInt(900000000); // Generate a 9-digit number

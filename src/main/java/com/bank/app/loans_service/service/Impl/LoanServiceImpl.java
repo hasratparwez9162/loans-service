@@ -1,5 +1,6 @@
 package com.bank.app.loans_service.service.Impl;
 
+
 import com.bank.app.loans_service.entity.Loan;
 import com.bank.app.loans_service.exception.ResourceNotFoundException;
 import com.bank.app.loans_service.repo.LoansRepository;
@@ -8,7 +9,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
@@ -19,14 +22,21 @@ public class LoanServiceImpl implements LoanService {
 
     @Override
     public Loan issueLoan(Loan loan) {
+        // Set the basic loan details
         loan.setLoanNumber(generateLoanNumber());
         loan.setStartDate(LocalDate.now());
         loan.setEndDate(LocalDate.now().plusMonths(loan.getTenureMonths()));
-        loan.setRemainingBalance(loan.getLoanAmount());
         loan.setLoanStatus("ACTIVE");
-
+        // Calculate total interest
+        BigDecimal totalInterest = (loan.getLoanAmount().multiply(loan.getInterestRate()).multiply(BigDecimal.valueOf(loan.getTenureMonths())))
+                .divide(BigDecimal.valueOf(12 * 100), BigDecimal.ROUND_HALF_UP);
+        // Set remaining balance to the loan (initial amount plus interest)
+        loan.setRemainingBalance(loan.getLoanAmount().add(totalInterest));
+        // Save the loan (this will also save the associated EMISchedule entries)
         return loanRepository.save(loan);
     }
+
+
 
     @Override
     public List<Loan> getLoansByUserId(Long userId) {

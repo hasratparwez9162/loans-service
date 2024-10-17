@@ -30,6 +30,24 @@ public class LoanServiceImpl implements LoanService {
         loan.setEndDate(LocalDate.now().plusMonths(loan.getTenureMonths()));
         loan.setLoanStatus("ACTIVE");
 
+
+        // Set interest rate based on loan type if interest rate is null
+        if (loan.getInterestRate() == null) {
+            switch (loan.getLoanType()) {
+                case PERSONAL:
+                    loan.setInterestRate(new BigDecimal("12.0")); // Example interest rate for personal loan
+                    break;
+                case HOME:
+                    loan.setInterestRate(new BigDecimal("8.5")); // Example interest rate for home loan
+                    break;
+                case AUTO:
+                    loan.setInterestRate(new BigDecimal("10.0")); // Example interest rate for auto loan
+                    break;
+                default:
+                    throw new IllegalArgumentException("Unknown loan type: " + loan.getLoanType());
+            }
+        }
+
         BigDecimal totalInterest = (loan.getLoanAmount().multiply(loan.getInterestRate()).multiply(BigDecimal.valueOf(loan.getTenureMonths())))
                 .divide(BigDecimal.valueOf(12 * 100), BigDecimal.ROUND_HALF_UP);
         loan.setRemainingBalance(loan.getLoanAmount().add(totalInterest));

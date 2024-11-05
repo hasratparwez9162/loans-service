@@ -4,10 +4,11 @@ import com.bank.app.loans_service.entity.Loan;
 import com.bank.app.loans_service.exception.ResourceNotFoundException;
 import com.bank.app.loans_service.repo.LoansRepository;
 import com.bank.app.loans_service.service.LoanService;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -19,9 +20,20 @@ public class LoanServiceImpl implements LoanService {
 
     private static final Logger logger = LoggerFactory.getLogger(LoanServiceImpl.class);
 
-    @Autowired
-    private LoansRepository loanRepository;
+    private final LoansRepository loanRepository;
+    private final LoanEventProducer loanEventProducer;
 
+    @Autowired
+    public LoanServiceImpl(LoansRepository loanRepository, LoanEventProducer loanEventProducer) {
+        this.loanRepository = loanRepository;
+        this.loanEventProducer = loanEventProducer;
+    }
+
+    /**
+     * Issues a new loan.
+     * @param loan The loan details.
+     * @return The newly created loan.
+     */
     @Override
     public Loan issueLoan(Loan loan) {
         logger.info("Issuing loan for userId: {}", loan.getUserId());
@@ -30,21 +42,20 @@ public class LoanServiceImpl implements LoanService {
         loan.setEndDate(LocalDate.now().plusMonths(loan.getTenureMonths()));
         loan.setLoanStatus("ACTIVE");
 
-
         // Set interest rate based on loan type if interest rate is null
         if (loan.getInterestRate() == null) {
             switch (loan.getLoanType()) {
-                case PERSONAL:
-                    loan.setInterestRate(new BigDecimal("12.0")); // Example interest rate for personal loan
-                    break;
                 case HOME:
-                    loan.setInterestRate(new BigDecimal("8.5")); // Example interest rate for home loan
+                    loan.setInterestRate(BigDecimal.valueOf(5.5));
                     break;
                 case AUTO:
-                    loan.setInterestRate(new BigDecimal("10.0")); // Example interest rate for auto loan
+                    loan.setInterestRate(BigDecimal.valueOf(7.0));
+                    break;
+                case PERSONAL:
+                    loan.setInterestRate(BigDecimal.valueOf(10.0));
                     break;
                 default:
-                    throw new IllegalArgumentException("Unknown loan type: " + loan.getLoanType());
+                    loan.setInterestRate(BigDecimal.valueOf(8.0));
             }
         }
 
@@ -53,10 +64,16 @@ public class LoanServiceImpl implements LoanService {
         loan.setRemainingBalance(loan.getLoanAmount().add(totalInterest));
 
         Loan newLoan = loanRepository.save(loan);
+        loanEventProducer.sendLoanIssuedMessage(newLoan);
         logger.info("Loan issued successfully with loanId: {}", newLoan.getId());
         return newLoan;
     }
 
+    /**
+     * Retrieves loans by user ID.
+     * @param userId The ID of the user.
+     * @return A list of loans belonging to the user.
+     */
     @Override
     public List<Loan> getLoansByUserId(Long userId) {
         logger.info("Retrieving loans for userId: {}", userId);
@@ -65,37 +82,53 @@ public class LoanServiceImpl implements LoanService {
         return loans;
     }
 
+    /**
+     * Updates the status of a loan.
+     * @param loanId The ID of the loan.
+     * @param newStatus The new status of the loan.
+     * @return The updated loan.
+     */
     @Override
     public Loan updateLoanStatus(Long loanId, String newStatus) {
         logger.info("Updating loan status for loanId: {} to status: {}", loanId, newStatus);
-        Loan loan = loanRepository.findById(loanId).orElse(null);
-        if (loan != null) {
-            loan.setLoanStatus(newStatus);
-            loanRepository.save(loan);
-            logger.info("Loan status updated successfully for loanId: {}", loanId);
-        } else {
-            logger.warn("Loan not found for loanId: {}", loanId);
-        }
-        return loan;
+        Loan loan = loanRepository.findById(loanId).orElseThrow(() -> new ResourceNotFoundException("Loan not found with id: " + loanId));
+        loan.setLoanStatus(newStatus);
+        Loan updatedLoan = loanRepository.save(loan);
+        loanEventProducer.sendLoanStatusUpdatedMessage(updatedLoan);
+        logger.info("Loan status updated successfully for loanId: {}", loanId);
+        return updatedLoan;
     }
 
+    /**
+     * Repays a loan.
+     * @param loanId The ID of the loan.
+     * @param paymentAmount The amount to be paid.
+     * @return The updated loan.
+     */
     @Override
+    @Transactional
     public Loan repayLoan(Long loanId, BigDecimal paymentAmount) {
         logger.info("Repaying loan for loanId: {} with amount: {}", loanId, paymentAmount);
-        Loan loan = loanRepository.findById(loanId).orElse(null);
-        if (loan != null && loan.getRemainingBalance().compareTo(BigDecimal.ZERO) > 0) {
-            loan.setRemainingBalance(loan.getRemainingBalance().subtract(paymentAmount));
-            if (loan.getRemainingBalance().compareTo(BigDecimal.ZERO) <= 0) {
-                loan.setLoanStatus("CLOSED");
-            }
-            loanRepository.save(loan);
+        Loan loan = loanRepository.findById(loanId).orElseThrow(() -> new ResourceNotFoundException("Loan not found with id: " + loanId));
+        if (loan.getRemainingBalance().compareTo(BigDecimal.ZERO) > 0) {
+            BigDecimal newBalance = loan.getRemainingBalance().subtract(paymentAmount);
+            loan.setRemainingBalance(newBalance.compareTo(BigDecimal.ZERO) < 0 ? BigDecimal.ZERO : newBalance);
+            Loan updatedLoan = loanRepository.save(loan);
+            loanEventProducer.sendLoanRepaidMessage(updatedLoan);
             logger.info("Loan repaid successfully for loanId: {}", loanId);
+            return updatedLoan;
         } else {
-            logger.warn("Loan not found or already repaid for loanId: {}", loanId);
+            logger.warn("Loan already repaid for loanId: {}", loanId);
+            return loan;
         }
-        return loan;
     }
 
+    /**
+     * Updates loan details.
+     * @param inputLoan The loan details to be updated.
+     * @return The updated loan.
+     * @throws ResourceNotFoundException if the loan is not found.
+     */
     @Override
     public Loan updateLoan(Loan inputLoan) throws ResourceNotFoundException {
         logger.info("Updating loan details for loanId: {}", inputLoan.getId());
@@ -134,10 +167,15 @@ public class LoanServiceImpl implements LoanService {
         }
 
         Loan updatedLoan = loanRepository.save(existingLoan);
+        loanEventProducer.sendLoanUpdatedMessage(updatedLoan);
         logger.info("Loan details updated successfully for loanId: {}", inputLoan.getId());
         return updatedLoan;
     }
 
+    /**
+     * Generates a unique loan number.
+     * @return A randomly generated loan number.
+     */
     private String generateLoanNumber() {
         Random random = new Random();
         int randomNumber = 100000000 + random.nextInt(900000000);
